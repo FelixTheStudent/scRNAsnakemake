@@ -1,0 +1,43 @@
+{
+  "__default__": {
+    "time": "00:10:00",
+    "mem": "100MB",
+    "threads": "1"
+  },
+  "star_map": {
+    "time": "02:00:00",
+    "mem": "50GB",
+    "threads": "8"
+  },
+  "bam_sort_name": {
+    "time": "02:00:00",
+    "mem": "10GB",
+    "threads": "1"
+  },
+  "htseq_count": {
+    "time": "00:55:00",
+    "mem": "1GB",
+    "threads": "1"
+  },
+  "bam_sort_coord": {
+    "time": "00:55:00",
+    "mem": "3GB",
+    "threads": "1"
+  },
+  "bam_index": {
+    "time": "00:55:00",
+    "mem": "200MB",
+    "threads": "1"
+  },
+  "bam_idxstats": {
+    "time": "00:15:00",
+    "mem": "100MB",
+    "threads": "1"
+  },
+  "countmatrix": {
+    "time": "05:15:00",
+    "mem": "5GB",
+    "threads": "1"
+  }
+
+}

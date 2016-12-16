@@ -1,0 +1,124 @@
+# vim: syntax=python tabstop=4 expandtab
+# coding: utf-8
+
+"""
+Author: Felix Wertek
+Affiliation: DKFZ, G200
+Aim: a Snakemake workflow ('pipeline') to map SINGLE-END reads with STAR
+Date: 14th June 2016
+"""
+
+####################################
+#	info on the data you should 
+#	put into the Snakefile executing this.
+#	You could alternatively also look at Snakefiles calling this script.
+# Note: the slashes matter. If below something starts/ends with a '/', whatever you put in
+# 	there should do so, too.
+# FASTQDIR="/path/to/.fastq.gz-files/"
+# RESULTS="path/from/snakefile/to/where/you/want/results/folder/"  # in the specified folder, we'll put a folder 'mapping' with the alignments, etc.
+# FASTQSUFFIX="_R1.fastq.gz"  # or whatever comes after your sample name as ending.
+
+#####################################
+#	Mapping parameters you should declare in the Snakefile using these rules:
+#############################
+# INDEX = "/abi/data/wertek/kyewski/data/brennecke/reference_with_SpikeIn/indexes/star"   path to STAR index of a reference genome (for single-cell, this should be a merge of genome and spike-in molecules)
+# GTF = "/abi/data/wertek/kyewski/data/brennecke/reference_with_SpikeIn/databases/ensembl/Mus_musculus.GRCm38.84.gtf"  path to the GTF file that belongs to the genome above
+# STARVERSION="/ibios/tbi_cluster/13.1/x86_64/bin/STAR-2.5"   # star2.5 can output a sorted BAM directly (although coordinate-sorted, not name-sorted.   well, it's which version of star you want to use. STAR1.3 does not enable sorted BAM-output.
+# OUTBAM="BAM Unsorted" 	a STAR parameter.
+# THREADN=8    STAR parameter of how many CPUs to use.
+
+
+
+
+
+################################################
+####		RULES   of this pipeline
+# the following rules are good to get from a fastq.gz file to htseq-count output.
+# You also need a configfile, but that get included within the Snakefile, not here. Not sure why
+# as of 16th June 2016, this is something for you to change, Charles. That's right, I'm talking to you :-*
+###############################################
+
+
+rule htseq_count:
+	input:
+		RESULTS + "mapping/{batch}/{sample}.coordsorted.bam"
+	output:
+		RESULTS + "mapping/{batch}/{sample}.rawCounts.txt"
+	params: gtffile=GTF
+	message: "Using HTSeq to compute raw read counts for {input} with some hardcoded parameters and the GTF file {params.gtffile}."
+	shell:
+		"source python2sourceme;htseq-count -a 10 -s 'no' -r 'pos' -f 'bam' -m 'union' {input} {params.gtffile} >> {output}"
+
+
+rule bam_idxstats:
+    input:
+        bam=RESULTS + "mapping/{batch}/{sample}.coordsorted.bam",
+        bai=RESULTS + "mapping/{batch}/{sample}.coordsorted.bam.bai"
+    output:
+        RESULTS + "mapping/{batch}/{sample}.stats.txt"
+    message: "idxstats calculates reads per chromosomes and other stats for file {input.bam} using index {input.bai}"
+    shell:
+        "samtools idxstats {input.bam} >> {output}"
+
+
+
+rule bam_index:
+	input:
+		RESULTS + "mapping/{batch}/{sample}.coordsorted.bam"
+	output:
+		RESULTS + "mapping/{batch}/{sample}.coordsorted.bam.bai"
+	message: "indexing bam file {input}. After this, you can use 'samtools idxstat', for example."
+	shell:
+		"samtools index {input}"
+
+rule bam_sort_coord:
+    input:
+        RESULTS + "mapping/{batch}/{sample}Aligned.out.bam"
+    output:
+        RESULTS + "mapping/{batch}/{sample}.coordsorted.bam"
+    params: outprefix=RESULTS+"mapping/{batch}/{sample}.coordsorted"
+    message: "by COORDINATE: sort file {input} to create output file {output}."
+    shell: "samtools sort {input} {params.outprefix}"
+
+
+rule star_map:
+    input: readf= FASTQDIR + "{sample}"+FASTQSUFFIX
+    params: index=INDEX, starversion=STARVERSION, outbam=OUTBAM, outprefix=RESULTS+"mapping/{batch}/{sample}"
+    # never got this to work. Because resources can only take integer values. bah. resources: walltime=12, mem=123445	# mem={config.mem},nodes=1:ppn={config.threads}
+    output: RESULTS + "mapping/{batch}/{sample}Aligned.out.bam"
+    message: "Mapping the file {input.readf} SINGLE-END to create the file {output}."
+    shell: "{params.starversion} --runThreadN {config[star_map][threads]} --readFilesCommand zcat --outFileNamePrefix {params.outprefix} --genomeDir {params.index} --outSAMtype {params.outbam} --readFilesIn {input.readf}"
+	## the  {config[star_map][threads]} comes from the "snakemake --cluster-config /path/to/config.json" specification on the commandline. 
+
+
+
+
+
+
+
+
+
+
+
+
+#######################
+#  in my current workflow, I do not need the following rule:
+#
+# rule bam_sort_name:
+#     input:
+#         RESULTS + "mapping/{batch}/{sample}Aligned.out.bam"
+#     output:
+#         RESULTS + "mapping/{batch}/{sample}.namesorted.bam"
+#     params: outprefix=RESULTS+"mapping/{batch}/{sample}.namesorted"
+#     message: "Sorting the file {input} by name to create the file {output}. Use namesorted BAM for HTSeq-count, for example."
+#     shell:
+#         "samtools sort -n {input} {params.outprefix}"
+##########################
+
+
+
+
+
+
+
+
